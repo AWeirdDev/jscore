@@ -13,26 +13,18 @@ on:
 permissions:
   contents: read
 
-
 jobs:
-  linux:
+  macos:
+    name: Build on macOS
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
         BUILD_TARGET: [release]
         platform:
-          - runner: ubuntu-22.04
+          - runner: macos-15-intel
             target: x86_64
-          - runner: ubuntu-22.04
-            target: x86
-          - runner: ubuntu-22.04
+          - runner: macos-latest
             target: aarch64
-          - runner: ubuntu-22.04
-            target: armv7
-          - runner: ubuntu-22.04
-            target: s390x
-          - runner: ubuntu-22.04
-            target: ppc64le
     steps:
       - uses: actions/checkout@v5
 
@@ -45,7 +37,7 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-            name: jscore
-            path: |
-                target/${{ matrix.BUILD_TARGET }}/jscore
-                target/${{ matrix.BUILD_TARGET }}/libjscore.so
+          name: jscore
+          path: |
+            target/${{ matrix.BUILD_TARGET }}/jscore
+            target/${{ matrix.BUILD_TARGET }}/libjscore.so
