@@ -211,6 +211,9 @@ fn main() {
     {
         println!("cargo:rustc-link-lib=stdc++");
         println!("cargo:rustc-link-lib=atomic");
+        println!("cargo:rustc-link-lib=icuuc");
+        println!("cargo:rustc-link-lib=icui18n");
+        println!("cargo:rustc-link-lib=icudata");
     }
 
     #[cfg(target_os = "macos")]
