@@ -8,6 +8,7 @@ mod string;
 mod r#type;
 mod value;
 
+/// Essentials for safely interacting with JavaScriptCore.
 pub mod prelude {
     pub use crate::class::*;
     pub use crate::context::*;

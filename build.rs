@@ -141,7 +141,7 @@ fn main() {
                 .unwrap_or_else(|_| cache_path.join(format!("webkit-{}", prefix)));
             let lib = path.join("lib");
             let inc = path.join("include");
-            download_prebuilt_webkit(&path, &lib, &cache_path, build_type);
+            download_prebuilt_webkit(&path, &cache_path, build_type);
             (Some(path), Some(lib), Some(inc))
         }
     };
@@ -370,12 +370,12 @@ fn build_local_webkit(
 }
 
 /// Mirrors the prebuilt download branch of SetupWebKit.cmake
-fn download_prebuilt_webkit(
-    webkit_path: &Path,
-    _webkit_lib_path: &Path,
-    cache_path: &Path,
-    build_type: &str,
-) {
+fn download_prebuilt_webkit(webkit_path: &Path, cache_path: &Path, build_type: &str) {
+    if webkit_path.exists() {
+        println!("cargo:warning=webkit already built, skipping");
+        return;
+    }
+
     let os = if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "macos") {
