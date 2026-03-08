@@ -72,10 +72,6 @@ jobs:
       - name: Get ICU
         run: |
           sudo apt-get install -y libicu-dev
-          # if 75 isn't available in apt, use the PPA
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
-          sudo apt-get install -y libicu75
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
