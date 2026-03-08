@@ -67,7 +67,7 @@ impl<'glob> JsGlobalContext<'glob> {
     /// This operation has no cost at all, since [`JsGlobalContext`]
     /// is a [`JsContext`], as stated.
     #[inline]
-    pub fn as_context(&self) -> JsContext<'glob> {
+    pub fn as_context(&self) -> JsContext<'glob, 'glob> {
         JsContext {
             _phantom: PhantomData,
             rf: self.rf as JsContextRef,
@@ -90,14 +90,14 @@ impl<'glob> JsGlobalContext<'glob> {
 /// This holds the global object and other execution state.
 #[repr(transparent)]
 #[derive(Clone, Copy)]
-pub struct JsContext<'ctx> {
-    _phantom: PhantomData<&'ctx ()>,
+pub struct JsContext<'global, 'ctx> {
+    _phantom: PhantomData<(&'ctx (), &'global ())>,
     pub(crate) rf: JsContextRef,
 }
 
-impl<'ctx> JsContext<'ctx> {
+impl<'global, 'ctx> JsContext<'global, 'ctx> {
     /// Gets the global context of a JavaScript execution context.
-    pub fn get_global_context(&self) -> &'ctx JsGlobalContext<'ctx> {
+    pub fn get_global_context(&self) -> &'ctx JsGlobalContext<'global> {
         unsafe { &*(js_context_get_global_context(self.rf) as *mut JsGlobalContext) }
     }
 }

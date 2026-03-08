@@ -1,0 +1,51 @@
+name: Build
+run-name: "Build (triggered by @${{ github.actor }})"
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+
+jobs:
+  linux:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        BUILD_TARGET: [release]
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: x86
+          - runner: ubuntu-22.04
+            target: aarch64
+          - runner: ubuntu-22.04
+            target: armv7
+          - runner: ubuntu-22.04
+            target: s390x
+          - runner: ubuntu-22.04
+            target: ppc64le
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build binaries for "${{ matrix.BUILD_TARGET }}"
+        run: cargo build --profile ${{ matrix.BUILD_TARGET }}
+
+      - name: Run tests for "${{ matrix.BUILD_TARGET }}"
+        run: cargo test --profile ${{ matrix.BUILD_TARGET }}
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: jscore
+            path: |
+                target/${{ matrix.BUILD_TARGET }}/jscore
+                target/${{ matrix.BUILD_TARGET }}/libjscore.so
