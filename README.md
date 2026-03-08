@@ -1,11 +1,12 @@
 <img src="./assets/webkit.png" align="right" />
 
 # jscore
-`jscore` is a relatively safe bindings to [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) written by Apple.
-
 <a href="https://buymeacoffee.com/aweirddev">
     <img src="https://developer.apple.com/assets/elements/icons/apple-pay/apple-pay.svg" width="60" alt="buy me a coffee" title="buy me a coffee" />
 </a>
+
+`jscore` is a relatively safe bindings to [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) written by Apple.
+
 
 It is currently **in development** and is not yet meant for production use.
 
