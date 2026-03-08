@@ -1,7 +1,11 @@
-# jscore (in development)
+<img src="./assets/webkit.png" align="right" />
+
+# jscore
 `jscore` is a relatively safe bindings to [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) written by Apple.
 
-It is currently in development and is not yet meant for production use.
+[![buy me a coffee](https://developer.apple.com/assets/elements/icons/apple-pay/apple-pay.svg)](https://buymeacoffee.com/aweirddev)
+
+It is currently **in development** and is not yet meant for production use.
 
 Feel free to contribute! I finally learned how to use git.
 
