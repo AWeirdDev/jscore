@@ -8,17 +8,15 @@ use crate::bindings::*;
 /// undefined behavior.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct ContextGroup<'group> {
-    _phantom: PhantomData<&'group ()>,
+pub struct ContextGroup {
     pub(crate) rf: JsContextGroupRef,
 }
 
-impl<'group> ContextGroup<'group> {
+impl ContextGroup {
     /// Creates a JavaScript context group.
     #[inline]
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData,
             rf: unsafe { js_context_group_create() },
         }
     }
@@ -31,21 +29,15 @@ impl<'group> ContextGroup<'group> {
 
     /// Creates a global JavaScript execution context in the context group.
     #[inline]
-    pub fn create_global_context(&self) -> JsGlobalContext<'group> {
+    pub fn create_global_context<'group>(&'group self) -> JsGlobalContext<'group> {
         JsGlobalContext {
             _phantom: PhantomData,
             rf: unsafe { js_global_context_create_in_group(self.rf, null_mut()) },
         }
     }
-
-    /// Releases a JavaScript context group.
-    #[inline]
-    pub fn release(self) {
-        unsafe { js_context_group_release(self.rf) }
-    }
 }
 
-impl Drop for ContextGroup<'_> {
+impl Drop for ContextGroup {
     fn drop(&mut self) {
         unsafe { js_context_group_release(self.rf) }
     }
@@ -55,19 +47,19 @@ impl Drop for ContextGroup<'_> {
 ///
 /// It represents the global object reference.
 #[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct JsGlobalContext<'glob> {
-    _phantom: PhantomData<&'glob ()>,
+#[derive(Debug, Clone, Copy)]
+pub struct JsGlobalContext<'group> {
+    _phantom: PhantomData<&'group ()>,
     pub(crate) rf: JsGlobalContextRef,
 }
 
-impl<'glob> JsGlobalContext<'glob> {
+impl<'group> JsGlobalContext<'group> {
     /// Casts to a [`JsContext`].
     ///
     /// This operation has no cost at all, since [`JsGlobalContext`]
     /// is a [`JsContext`], as stated.
     #[inline]
-    pub fn as_context(&self) -> JsContext<'glob, 'glob> {
+    pub fn as_context(&'group self) -> JsContext<'group> {
         JsContext {
             _phantom: PhantomData,
             rf: self.rf as JsContextRef,
@@ -79,25 +71,19 @@ impl<'glob> JsGlobalContext<'glob> {
     pub fn retain(&self) {
         unsafe { js_global_context_retain(self.rf) };
     }
-
-    /// Releases a global JavaScript execution context.
-    #[inline]
-    pub fn release(self) {
-        unsafe { js_global_context_release(self.rf) }
-    }
 }
 
 /// This holds the global object and other execution state.
 #[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct JsContext<'global, 'ctx> {
-    _phantom: PhantomData<(&'ctx (), &'global ())>,
+#[derive(Debug, Clone, Copy)]
+pub struct JsContext<'global> {
+    _phantom: PhantomData<&'global ()>,
     pub(crate) rf: JsContextRef,
 }
 
-impl<'global, 'ctx> JsContext<'global, 'ctx> {
+impl<'global> JsContext<'global> {
     /// Gets the global context of a JavaScript execution context.
-    pub fn get_global_context(&self) -> &'ctx JsGlobalContext<'global> {
+    pub fn get_global_context(&self) -> &'global JsGlobalContext<'global> {
         unsafe { &*(js_context_get_global_context(self.rf) as *mut JsGlobalContext) }
     }
 }

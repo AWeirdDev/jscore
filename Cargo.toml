@@ -1,14 +1,16 @@
 [package]
 name = "jscore"
-description = "javascriptcore"
+description = "JavaScript core"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
 path = "src/lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+
+[dev-dependencies]
 
 [build-dependencies]
 bindgen = "0.72.1"

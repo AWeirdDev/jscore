@@ -6,19 +6,101 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-// Mirrors WEBKIT_VERSION in SetupWebKit.cmake
 const WEBKIT_VERSION: &str = "4a6a32c32c11ffb9f5a94c310b10f50130bfe6de";
+
+#[derive(Debug)]
+enum WebKitSource {
+    /// Use whatever is installed on the system (e.g. macOS framework, apt package)
+    System { name: &'static str },
+    /// Build from a local source tree at vendor/WebKit
+    Local { build_type: String },
+    /// Download a prebuilt tarball from oven-sh/WebKit releases
+    Prebuilt { build_type: String },
+}
+
+impl WebKitSource {
+    fn resolve() -> Self {
+        // WEBKIT_SOURCE=system|local|prebuilt
+        if let Ok(source) = env::var("WEBKIT_SOURCE") {
+            let build_type = Self::build_type();
+            return match source.to_lowercase().as_str() {
+                "system" => Self::System {
+                    name: Self::system_headers_name().expect("couldn't find system headers"),
+                },
+                "local" => Self::Local { build_type },
+                "prebuilt" => Self::Prebuilt { build_type },
+                other => panic!(
+                    "Unknown WEBKIT_SOURCE value: '{}'. Expected system, local, or prebuilt.",
+                    other
+                ),
+            };
+        }
+
+        if env::var("WEBKIT_LOCAL").is_ok() {
+            return Self::Local {
+                build_type: Self::build_type(),
+            };
+        }
+
+        if let Some(name) = Self::system_headers_name() {
+            return Self::System { name };
+        }
+
+        Self::Prebuilt {
+            build_type: Self::build_type(),
+        }
+    }
+
+    fn build_type() -> String {
+        env::var("WEBKIT_BUILD_TYPE").unwrap_or_else(|_| {
+            if cfg!(debug_assertions) {
+                "Debug".into()
+            } else {
+                "Release".into()
+            }
+        })
+    }
+
+    fn system_headers_name() -> Option<&'static str> {
+        // macOS framework
+        #[cfg(target_os = "macos")]
+        {
+            let pathname = "/System/Library/Frameworks/JavaScriptCore.framework";
+            if fs::metadata(pathname).is_ok() {
+                return Some("framework=JavascriptCore");
+            }
+        }
+
+        // linux: common package paths (libjavascriptcoregtk-4.x-dev)
+        #[cfg(target_os = "linux")]
+        for (name, pathname) in &[
+            (
+                "javascriptcoregtk-4.1",
+                "/usr/include/webkitgtk-4.1/JavaScriptCore/JavaScript.h",
+            ),
+            (
+                "javascriptcoregtk-4.0",
+                "/usr/include/webkitgtk-4.0/JavaScriptCore/JavaScript.h",
+            ),
+        ] {
+            let path = Path::new(pathname);
+            if path.exists() {
+                return Some(name);
+            }
+        }
+
+        None
+    }
+}
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    // Mirrors VENDOR_PATH / CACHE_PATH convention
     let vendor_path = manifest_dir.join("vendor");
     let cache_path = out_dir.join("cache");
     fs::create_dir_all(&cache_path).unwrap();
 
-    let webkit_local = env::var("WEBKIT_LOCAL").is_ok();
     let webkit_build_type = env::var("WEBKIT_BUILD_TYPE").unwrap_or_else(|_| {
         if cfg!(debug_assertions) {
             "Debug".to_string()
@@ -27,106 +109,111 @@ fn main() {
         }
     });
 
-    // Mirrors DEFAULT_WEBKIT_PATH logic
-    let webkit_path = env::var("WEBKIT_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            if webkit_local {
-                vendor_path
-                    .join("WebKit")
-                    .join("WebKitBuild")
-                    .join(&webkit_build_type)
+    let source = WebKitSource::resolve();
+    println!("cargo:warning=resolved WebKit source: {source:?}");
+
+    let (webkit_path, webkit_lib_path, webkit_include_path) = match &source {
+        WebKitSource::System { name: _ } => (None, None, None),
+        WebKitSource::Local { build_type } => {
+            let path = env::var("WEBKIT_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| {
+                    vendor_path
+                        .join("WebKit")
+                        .join("WebKitBuild")
+                        .join(build_type)
+                });
+            let lib = path.join("lib");
+            let inc = path.join("include");
+            build_local_webkit(&vendor_path.join("WebKit"), &path, &lib, build_type);
+            (Some(path), Some(lib), Some(inc))
+        }
+        WebKitSource::Prebuilt { build_type } => {
+            let prefix = &WEBKIT_VERSION[..16];
+            let path = env::var("WEBKIT_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| cache_path.join(format!("webkit-{}", prefix)));
+            let lib = path.join("lib");
+            let inc = path.join("include");
+            download_prebuilt_webkit(&path, &lib, &cache_path, build_type);
+            (Some(path), Some(lib), Some(inc))
+        }
+    };
+
+    // Link
+    if let Some(lib_path) = &webkit_lib_path {
+        let webkit_path = webkit_path.unwrap();
+
+        println!("cargo:rustc-link-search=native={}", lib_path.display());
+        if cfg!(target_os = "windows") {
+            println!("cargo:rustc-link-lib=static=JavaScriptCore");
+            println!("cargo:rustc-link-lib=static=WTF");
+            println!("cargo:rustc-link-lib=static=bmalloc");
+
+            // ICU static libs (prebuilt naming convention: 's' prefix)
+            let icu_suffix = if webkit_build_type == "Debug" {
+                "d"
             } else {
-                let prefix = &WEBKIT_VERSION[..16];
-                cache_path.join(format!("webkit-{}", prefix))
-            }
-        });
-
-    let webkit_lib_path = webkit_path.join("lib");
-    let webkit_include_path = webkit_path.join("include");
-
-    if webkit_local {
-        let webkit_source_dir = vendor_path.join("WebKit");
-        build_local_webkit(
-            &webkit_source_dir,
-            &webkit_path,
-            &webkit_lib_path,
-            &webkit_build_type,
-        );
-    } else {
-        download_prebuilt_webkit(
-            &webkit_path,
-            &webkit_lib_path,
-            &cache_path,
-            &webkit_build_type,
-        );
-    }
-
-    // Tell cargo where to find the libraries
-    println!(
-        "cargo:rustc-link-search=native={}",
-        webkit_lib_path.display()
-    );
-
-    // Mirrors JSC_BYPRODUCTS
-    if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-lib=static=JavaScriptCore");
-        println!("cargo:rustc-link-lib=static=WTF");
-        println!("cargo:rustc-link-lib=static=bmalloc");
-        // ICU static libs (prebuilt naming convention: 's' prefix)
-        let icu_suffix = if webkit_build_type == "Debug" {
-            "d"
+                ""
+            };
+            println!("cargo:rustc-link-lib=static=sicudt{}", icu_suffix);
+            println!("cargo:rustc-link-lib=static=sicuin{}", icu_suffix);
+            println!("cargo:rustc-link-lib=static=sicuuc{}", icu_suffix);
         } else {
-            ""
-        };
-        println!("cargo:rustc-link-lib=static=sicudt{}", icu_suffix);
-        println!("cargo:rustc-link-lib=static=sicuin{}", icu_suffix);
-        println!("cargo:rustc-link-lib=static=sicuuc{}", icu_suffix);
+            println!("cargo:rustc-link-lib=static=JavaScriptCore");
+            println!("cargo:rustc-link-lib=static=WTF");
+            println!("cargo:rustc-link-lib=static=bmalloc");
+        }
+
+        println!("cargo:include={}", webkit_path.display());
+        println!(
+            "cargo:include={}",
+            webkit_path.join("JavaScriptCore/Headers").display()
+        );
+        println!(
+            "cargo:include={}",
+            webkit_path
+                .join("JavaScriptCore/Headers/JavaScriptCore")
+                .display()
+        );
+        println!(
+            "cargo:include={}",
+            webkit_path.join("JavaScriptCore/PrivateHeaders").display()
+        );
+        println!(
+            "cargo:include={}",
+            webkit_path.join("bmalloc/Headers").display()
+        );
+        println!(
+            "cargo:include={}",
+            webkit_path.join("WTF/Headers").display()
+        );
+        println!(
+            "cargo:include={}",
+            webkit_path
+                .join("JavaScriptCore/PrivateHeaders/JavaScriptCore")
+                .display()
+        );
+
+        println!(
+            "cargo:rustc-link-search=native={}",
+            webkit_lib_path.unwrap().display()
+        );
     } else {
-        println!("cargo:rustc-link-lib=static=JavaScriptCore");
-        println!("cargo:rustc-link-lib=static=WTF");
-        println!("cargo:rustc-link-lib=static=bmalloc");
+        if let WebKitSource::System { name } = &source {
+            println!("cargo:rustc-link-lib={}", &name);
+        } else {
+            unsafe { std::hint::unreachable_unchecked() }
+        }
     }
 
-    // Include paths — mirrors include_directories() block
-    println!("cargo:include={}", webkit_path.display());
-    println!(
-        "cargo:include={}",
-        webkit_path.join("JavaScriptCore/Headers").display()
-    );
-    println!(
-        "cargo:include={}",
-        webkit_path
-            .join("JavaScriptCore/Headers/JavaScriptCore")
-            .display()
-    );
-    println!(
-        "cargo:include={}",
-        webkit_path.join("JavaScriptCore/PrivateHeaders").display()
-    );
-    println!(
-        "cargo:include={}",
-        webkit_path.join("bmalloc/Headers").display()
-    );
-    println!(
-        "cargo:include={}",
-        webkit_path.join("WTF/Headers").display()
-    );
-    println!(
-        "cargo:include={}",
-        webkit_path
-            .join("JavaScriptCore/PrivateHeaders/JavaScriptCore")
-            .display()
-    );
     println!("cargo:rerun-if-changed=wrapper.h");
-
-    // Rerun if these env vars change
     println!("cargo:rerun-if-env-changed=WEBKIT_LOCAL");
     println!("cargo:rerun-if-env-changed=WEBKIT_PATH");
     println!("cargo:rerun-if-env-changed=WEBKIT_BUILD_TYPE");
     println!("cargo:rerun-if-env-changed=WEBKIT_VERSION");
 
-    generate_bindings(&webkit_include_path);
+    generate_bindings(webkit_include_path.as_ref());
 }
 
 /// Mirrors the WEBKIT_LOCAL branch of SetupWebKit.cmake
@@ -259,15 +346,6 @@ fn download_prebuilt_webkit(
     cache_path: &Path,
     build_type: &str,
 ) {
-    // Check if already downloaded with matching version (mirrors package.json check)
-    let package_json = webkit_path.join("package.json");
-    if package_json.exists() {
-        let contents = fs::read_to_string(&package_json).unwrap_or_default();
-        if contents.contains(WEBKIT_VERSION) {
-            return; // Already up to date
-        }
-    }
-
     let os = if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "macos") {
@@ -367,16 +445,7 @@ fn sdk_flags() -> Vec<String> {
     vec![]
 }
 
-fn jsc_include_flags(webkit_include_path: &Path) -> Vec<String> {
-    #[cfg(target_os = "macos")]
-    {
-        let system =
-            Path::new("/System/Library/Frameworks/JavaScriptCore.framework/Headers/JavaScript.h");
-        if system.exists() {
-            return vec![];
-        }
-    }
-
+fn jsc_include_flags(webkit_include_path: &PathBuf) -> Vec<String> {
     let downloaded = webkit_include_path.join("JavaScriptCore/JavaScript.h");
     if downloaded.exists() {
         return vec![
@@ -430,26 +499,39 @@ impl bindgen::callbacks::ParseCallbacks for BindgenCallback {
     }
 }
 
-fn generate_bindings(webkit_include_path: &Path) {
+fn generate_bindings(webkit_include_path: Option<&PathBuf>) {
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     let bindings = sdk_flags()
         .into_iter()
-        .chain(jsc_include_flags(webkit_include_path))
+        .chain({
+            if let Some(ref include_path) = webkit_include_path {
+                jsc_include_flags(include_path)
+            } else {
+                vec![]
+            }
+        })
         .fold(
-            bindgen::Builder::default()
-                .header("wrapper.h")
-                .clang_arg(format!("-I{}", webkit_include_path.display()))
-                .allowlist_recursively(true)
-                .allowlist_function("JS.*")
-                .allowlist_item("JS.*")
-                .allowlist_type("JS.*")
-                .allowlist_var("kJS.*")
-                .no_copy("OpaqueJS.*")
-                .generate_comments(true)
-                .default_alias_style(bindgen::AliasVariation::TypeAlias)
-                .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-                .parse_callbacks(BindgenCallback::new()),
+            {
+                let mut builder = bindgen::Builder::default()
+                    .header("wrapper.h")
+                    .allowlist_recursively(true)
+                    .allowlist_function("JS.*")
+                    .allowlist_item("JS.*")
+                    .allowlist_type("JS.*")
+                    .allowlist_var("kJS.*")
+                    .no_copy("OpaqueJS.*")
+                    .generate_comments(true)
+                    .default_alias_style(bindgen::AliasVariation::TypeAlias)
+                    .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+                    .parse_callbacks(BindgenCallback::new());
+
+                if let Some(include_path) = webkit_include_path {
+                    builder = builder.clang_arg(format!("-I{}", include_path.display()));
+                }
+
+                builder
+            },
             |b, flag| b.clang_arg(flag),
         )
         .generate()
