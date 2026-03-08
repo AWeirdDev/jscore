@@ -43,7 +43,7 @@ fn main() {
         });
 
     let webkit_lib_path = webkit_path.join("lib");
-    // let webkit_include_path = webkit_path.join("include");
+    let webkit_include_path = webkit_path.join("include");
 
     if webkit_local {
         let webkit_source_dir = vendor_path.join("WebKit");
@@ -126,7 +126,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=WEBKIT_BUILD_TYPE");
     println!("cargo:rerun-if-env-changed=WEBKIT_VERSION");
 
-    generate_bindings(Path::new(concat!(env!("CARGO_MANIFEST_PATH"), "/src")));
+    generate_bindings(&webkit_include_path);
 }
 
 /// Mirrors the WEBKIT_LOCAL branch of SetupWebKit.cmake
@@ -367,6 +367,34 @@ fn sdk_flags() -> Vec<String> {
     vec![]
 }
 
+fn jsc_include_flags(webkit_include_path: &Path) -> Vec<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let system =
+            Path::new("/System/Library/Frameworks/JavaScriptCore.framework/Headers/JavaScript.h");
+        if system.exists() {
+            return vec![];
+        }
+    }
+
+    let downloaded = webkit_include_path.join("JavaScriptCore/JavaScript.h");
+    if downloaded.exists() {
+        return vec![
+            format!("-I{}", webkit_include_path.display()),
+            format!("-DJSC_INCLUDE_PATH=\"{}\"", downloaded.to_string_lossy()),
+        ];
+    }
+
+    panic!(
+        "JavaScriptCore headers not found.\n  \
+         - checked system: /System/Library/Frameworks/JavaScriptCore.framework\n  \
+         - checked downloaded: {}\n  \
+         ...but nothing was found.
+         ",
+        webkit_include_path.display()
+    );
+}
+
 #[derive(Debug)]
 pub struct BindgenCallback;
 
@@ -402,11 +430,12 @@ impl bindgen::callbacks::ParseCallbacks for BindgenCallback {
     }
 }
 
-fn generate_bindings(webkit_include_path: &std::path::Path) {
-    let out_path = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+fn generate_bindings(webkit_include_path: &Path) {
+    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     let bindings = sdk_flags()
-        .iter()
+        .into_iter()
+        .chain(jsc_include_flags(webkit_include_path))
         .fold(
             bindgen::Builder::default()
                 .header("wrapper.h")
