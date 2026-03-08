@@ -37,7 +37,7 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jscore
+          name: jscore_${{ matrix.platform.target }}
           path: |
             target/${{ matrix.BUILD_TARGET }}/libjscore.d
             target/${{ matrix.BUILD_TARGET }}/libjscore.dylib
@@ -72,7 +72,7 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jscore
+          name: jscore_${{ matrix.platform.target }}
           path: |
             target/${{ matrix.BUILD_TARGET }}/jscore.a
             target/${{ matrix.BUILD_TARGET }}/libjscore.so
