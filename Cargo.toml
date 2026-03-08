@@ -1,0 +1,16 @@
+[package]
+name = "jscore"
+description = "javascriptcore"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.72.1"
+heck = "0.5.0"
+doxygen-bindgen = "0.1.3"
