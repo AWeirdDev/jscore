@@ -207,6 +207,14 @@ fn main() {
         }
     }
 
+    let cxx = env::var("CXX").unwrap_or_default();
+    if cxx.contains("clang") {
+        println!("cargo:rustc-link-lib=c++");
+    } else {
+        println!("cargo:rustc-link-lib=stdc++");
+        println!("cargo:rustc-link-lib=atomic");
+    }
+
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-env-changed=WEBKIT_LOCAL");
     println!("cargo:rerun-if-env-changed=WEBKIT_PATH");
