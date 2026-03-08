@@ -221,6 +221,18 @@ fn main() {
         println!("cargo:rustc-link-lib=c++");
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        println!("cargo:rustc-link-lib=winmm");
+        println!("cargo:rustc-link-lib=shell32");
+        println!("cargo:rustc-link-lib=crypt32");
+        println!("cargo:rustc-link-lib=advapi32");
+        println!("cargo:rustc-link-lib=ole32");
+        println!("cargo:rustc-link-lib=oleaut32");
+        println!("cargo:rustc-link-lib=ws2_32");
+        println!("cargo:rustc-link-lib=dbghelp");
+    }
+
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-env-changed=WEBKIT_LOCAL");
     println!("cargo:rerun-if-env-changed=WEBKIT_PATH");
