@@ -42,6 +42,34 @@ jobs:
             target/${{ matrix.BUILD_TARGET }}/libjscore.d
             target/${{ matrix.BUILD_TARGET }}/libjscore.dylib
 
+  windows:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+            target: x64
+          - runner: windows-latest
+            target: x86
+          - runner: windows-11-arm
+            target: aarch64
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build binaries for "${{ matrix.BUILD_TARGET }}"
+        run: cargo build --profile ${{ matrix.BUILD_TARGET }}
+
+      - name: Run tests for "${{ matrix.BUILD_TARGET }}"
+        run: cargo test --profile ${{ matrix.BUILD_TARGET }}
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jscore-windows-${{ matrix.platform.target }}-${{ matrix.BUILD_TARGET }}
+          path: |
+            target/${{ matrix.BUILD_TARGET }}/libjscore.dll
+
   linux:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
