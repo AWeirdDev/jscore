@@ -213,12 +213,12 @@ fn main() {
         let is_clang = cxx.contains("clang");
         println!("cargo:warning=is_clang? {is_clang}");
 
-        if is_clang {
-            println!("cargo:rustc-link-lib=c++");
-        } else {
-            println!("cargo:rustc-link-lib=stdc++");
-            println!("cargo:rustc-link-lib=atomic");
-        }
+        // if is_clang {
+        println!("cargo:rustc-link-lib=c++");
+        // } else {
+        //     println!("cargo:rustc-link-lib=stdc++");
+        //     println!("cargo:rustc-link-lib=atomic");
+        // }
     }
 
     #[cfg(target_os = "macos")]
