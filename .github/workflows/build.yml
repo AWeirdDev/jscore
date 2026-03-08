@@ -46,6 +46,7 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
+        BUILD_TARGET: [release]
         platform:
           - runner: ubuntu-22.04
             target: x86_64
