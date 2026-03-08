@@ -1,20 +1,26 @@
-// file is generated with artificial intelligence and not yet edited.
-// i will edit this once i get how they work.
+// this file is first generated with ai, and then
+// hand-edited & -written. i do not have this area of
+// expertise, so if you find anything weird, please submit
+// an issue.
+//
+// i know, i hate ai slop
 
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use heck::ToShoutySnakeCase;
+
 const WEBKIT_VERSION: &str = "4a6a32c32c11ffb9f5a94c310b10f50130bfe6de";
 
 #[derive(Debug)]
 enum WebKitSource {
-    /// Use whatever is installed on the system (e.g. macOS framework, apt package)
+    /// use system installation
     System { name: &'static str },
-    /// Build from a local source tree at vendor/WebKit
+    /// build from a local source tree at vendor/WebKit
     Local { build_type: String },
-    /// Download a prebuilt tarball from oven-sh/WebKit releases
+    /// download a prebuilt tarball from oven-sh/WebKit releases
     Prebuilt { build_type: String },
 }
 
@@ -242,14 +248,13 @@ fn main() {
     generate_bindings(webkit_include_path.as_ref());
 }
 
-/// Mirrors the WEBKIT_LOCAL branch of SetupWebKit.cmake
 fn build_local_webkit(
     webkit_source_dir: &Path,
     webkit_path: &Path,
     webkit_lib_path: &Path,
     build_type: &str,
 ) {
-    // Windows: build ICU from source (mirrors "Build ICU from source" block)
+    // windows: build icu from source
     let icu_local_root = if cfg!(target_os = "windows") {
         let root = webkit_source_dir.join("WebKitBuild").join("icu");
         let icu_lib = root.join("lib").join("sicudt.lib");
@@ -277,8 +282,7 @@ fn build_local_webkit(
             assert!(status.success(), "ICU build failed");
         }
 
-        // Copy ICU libs to webkit_lib_path with expected names
-        // Mirrors: file(COPY_FILE ...) block
+        // copy ICU libs to webkit_lib_path with expected names
         fs::create_dir_all(webkit_lib_path).unwrap();
         let suffix = if build_type == "Debug" { "d" } else { "" };
         for (src, dst) in &[
@@ -298,7 +302,7 @@ fn build_local_webkit(
         None
     };
 
-    // Mirrors: set(JSC_CMAKE_ARGS ...) block
+    // jsc cmake args
     let cmake_bin = which_cmake();
     let mut cmake_args = vec![
         "-S".to_string(),
@@ -321,7 +325,7 @@ fn build_local_webkit(
         "-DENABLE_WEB_RTC=OFF".to_string(),
     ];
 
-    // Windows-specific cmake args (mirrors the if(WIN32) block)
+    // windows-specific cmake args
     if cfg!(target_os = "windows") {
         let icu_root = icu_local_root.unwrap();
         cmake_args.extend([
@@ -343,11 +347,11 @@ fn build_local_webkit(
         ]);
     }
 
-    // Configure
     let status = Command::new(&cmake_bin)
         .args(&cmake_args)
         .status()
         .expect("Failed to run cmake configure");
+
     assert!(status.success(), "JSC cmake configure failed");
 
     // Build (mirrors: add_custom_target(jsc ...))
@@ -414,24 +418,68 @@ fn download_prebuilt_webkit(
     let archive_path = cache_path.join(&filename);
     println!("cargo:warning=Downloading WebKit from {}", url);
 
-    // Download
-    let status = Command::new("curl")
-        .args(["-fL", "-o", &archive_path.to_string_lossy(), &url])
-        .status()
-        .expect("Failed to run curl; ensure curl is available");
-    assert!(status.success(), "Failed to download WebKit");
+    // download webkit
+    {
+        let trials: [Box<dyn FnOnce() -> bool>; 2] = [
+            Box::new({
+                let archive_path = archive_path.clone();
+                let url = url.clone();
+                move || {
+                    Command::new("curl")
+                        .args(["-fL", "-o", &archive_path.to_string_lossy(), &url])
+                        .status()
+                        .ok() // Option<...>
+                        .map(|item| item.success()) // Option<bool>
+                        .is_some_and(|inner| inner)
+                }
+            }),
+            Box::new({
+                let archive_path = archive_path.clone();
+                let url = url.clone();
+                move || {
+                    Command::new("python3")
+                        .args(["scripts/download.py", &url, &archive_path.to_string_lossy()])
+                        .status()
+                        .ok()
+                        .map(|item| item.success()) // Option<bool>
+                        .is_some_and(|inner| inner)
+                }
+            }),
+        ];
 
-    // Extract (mirrors: file(ARCHIVE_EXTRACT ...))
-    let status = Command::new("tar")
-        .args([
-            "-xzf",
-            &archive_path.to_string_lossy(),
-            "-C",
-            &cache_path.to_string_lossy(),
-        ])
-        .status()
-        .expect("Failed to extract WebKit archive");
-    assert!(status.success(), "Failed to extract WebKit");
+        let downloaded = 'rt: {
+            for trial in trials.into_iter() {
+                if trial() {
+                    break 'rt true;
+                }
+
+                println!("cargo:warning=failed to download webkit, retrying different method");
+            }
+
+            false
+        };
+        if !downloaded {
+            panic!("Failed to download WebKit");
+        }
+    }
+    println!("cargo:warning=successfully downloaded webkit");
+
+    // extract webkit: either with `tar` or with python
+    {
+        let status = Command::new("tar")
+            .args([
+                "-xzf",
+                &archive_path.to_string_lossy(),
+                "-C",
+                &cache_path.to_string_lossy(),
+            ])
+            .status()
+            .expect("couldn't find python");
+
+        if !status.success() {
+            panic!("Failed to extract WebKit");
+        }
+    }
 
     fs::remove_file(&archive_path).ok();
     if webkit_path.exists() {
@@ -506,9 +554,8 @@ impl bindgen::callbacks::ParseCallbacks for BindgenCallback {
         use heck::{ToSnakeCase, ToUpperCamelCase};
 
         match item_info.kind {
-            ItemKind::Function | ItemKind::Module | ItemKind::Var => {
-                Some(item_info.name.to_snake_case())
-            }
+            ItemKind::Function | ItemKind::Module => Some(item_info.name.to_snake_case()),
+            ItemKind::Var => Some(item_info.name.to_shouty_snake_case()),
             ItemKind::Type => Some(item_info.name.to_upper_camel_case()),
             _ => None,
         }

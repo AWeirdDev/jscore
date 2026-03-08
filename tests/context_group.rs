@@ -1,4 +1,4 @@
-use jscore::ContextGroup;
+use jscore::prelude::*;
 
 #[test]
 fn test_context_group() {

@@ -1,12 +1,19 @@
 pub mod bindings;
 
+mod class;
 mod context;
-mod data;
 mod object;
-
-pub use crate::context::ContextGroup;
+mod script;
+mod string;
+mod r#type;
+mod value;
 
 pub mod prelude {
+    pub use crate::class::*;
     pub use crate::context::*;
     pub use crate::object::*;
+    pub use crate::script::*;
+    pub use crate::string::*;
+    pub use crate::r#type::*;
+    pub use crate::value::*;
 }

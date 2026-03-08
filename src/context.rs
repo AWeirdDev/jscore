@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ptr::null_mut};
+use std::{marker::PhantomData, mem, ptr::null_mut};
 
 use crate::bindings::*;
 
@@ -60,10 +60,7 @@ impl<'group> JsGlobalContext<'group> {
     /// is a [`JsContext`], as stated.
     #[inline]
     pub fn as_context(&'group self) -> JsContext<'group> {
-        JsContext {
-            _phantom: PhantomData,
-            rf: self.rf as JsContextRef,
-        }
+        unsafe { mem::transmute::<_, JsContext>(self.rf) }
     }
 
     /// Retains a global JavaScript execution context.
