@@ -14,6 +14,46 @@ impl<'ctx> JsValue<'ctx> {
         unsafe { crate::r#type::JsType::from_ffi(js_value_get_type(ctx.rf, self.rf)) }
     }
 
+    #[inline]
+    pub fn is_null(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_null(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_boolean(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_boolean(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_number(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_number(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_string(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_string(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_symbol(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_symbol(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_object(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_object(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_array(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_array(ctx.rf, self.rf) }
+    }
+
+    #[inline]
+    pub fn is_date(&self, ctx: &'ctx JsContext) -> bool {
+        unsafe { js_value_is_date(ctx.rf, self.rf) }
+    }
+
     #[inline(always)]
     pub fn as_mut_ptr(&self) -> *mut JsValueRef {
         self.rf as *mut _
@@ -146,14 +186,17 @@ impl std::fmt::Debug for JsValue<'_> {
     }
 }
 
+/// Represents a JavaScript symbol.
 pub struct Symbol;
 
 impl Symbol {
+    /// Create a symbol without description.
     #[inline]
     pub fn new<'ctx>(ctx: &'ctx JsContext) -> JsValue<'ctx> {
         JsValue::new_symbol(ctx, None)
     }
 
+    /// Create a symbol with description.
     #[inline]
     pub fn new_with_description<'ctx>(
         ctx: &'ctx JsContext,
