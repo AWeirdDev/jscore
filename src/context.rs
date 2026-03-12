@@ -11,6 +11,7 @@ use jscore_sys::*;
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ContextGroup {
+    _no_send: PhantomData<*mut ()>,
     pub(crate) rf: JsContextGroupRef,
 }
 
@@ -19,6 +20,7 @@ impl ContextGroup {
     #[inline]
     pub fn new() -> Self {
         Self {
+            _no_send: PhantomData,
             rf: unsafe { js_context_group_create() },
         }
     }
@@ -70,10 +72,9 @@ impl<'group> JsGlobalContext<'group> {
     pub fn retain(&self) {
         unsafe { js_global_context_retain(self.rf) };
     }
-}
 
-impl Drop for JsGlobalContext<'_> {
-    fn drop(&mut self) {
+    /// Releases a global JavaScript execution context.
+    pub fn release(self) {
         unsafe { js_global_context_release(self.rf) };
     }
 }

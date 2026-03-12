@@ -3,6 +3,7 @@ use std::{ffi::c_void, marker::PhantomData, mem, ptr::null_mut};
 
 use crate::{class::JsClass, context::JsContext, string::JsString, value::JsValue};
 
+#[derive(Clone, Copy)]
 pub struct JsObject<'ctx> {
     _phantom: PhantomData<&'ctx ()>,
     pub(crate) rf: JsObjectRef,
@@ -41,7 +42,7 @@ impl<'ctx> JsObject<'ctx> {
 
     /// Casts to a [`JsValue`], dropping some type information.
     #[inline]
-    pub fn as_value(&self) -> JsValue<'ctx> {
+    pub const fn as_value(&self) -> JsValue<'ctx> {
         unsafe { mem::transmute::<_, JsValue>(self.rf) }
     }
 

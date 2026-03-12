@@ -27,4 +27,5 @@ Promise
         .unwrap();
 
     println!("{result}");
+    // global.retain();
 }

@@ -48,7 +48,7 @@ impl<'ctx> Script<'ctx> {
     }
 
     /// Evaluate the script.
-    pub fn evaluate(&self, ctx: JsContext) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
+    pub fn evaluate(&self, ctx: JsContext<'ctx>) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
         let mut exception = JsValue::new_null(ctx);
         let res = unsafe {
             js_evaluate_script(
