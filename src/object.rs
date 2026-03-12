@@ -1,6 +1,7 @@
-use std::{ffi::c_void, marker::PhantomData, ptr::null_mut};
+use jscore_sys::*;
+use std::{ffi::c_void, marker::PhantomData, mem, ptr::null_mut};
 
-use crate::{bindings::*, class::JsClass, context::JsContext};
+use crate::{class::JsClass, context::JsContext, string::JsString, value::JsValue};
 
 pub struct JsObject<'ctx> {
     _phantom: PhantomData<&'ctx ()>,
@@ -14,7 +15,8 @@ impl<'ctx> JsObject<'ctx> {
     /// - `ctx`: The execution context to use.
     /// - `class`: The [`JsClass`] to assign to the object. Pass `None` to use the default object class.
     /// - `data`: A `*mut c_void` to set as the object’s private data. Pass `None` to specify no private data.
-    pub fn new(ctx: &JsContext<'ctx>, class: Option<&JsClass>, data: Option<*mut c_void>) -> Self {
+    #[inline(always)]
+    pub fn new(ctx: JsContext<'ctx>, class: Option<&JsClass>, data: Option<*mut c_void>) -> Self {
         Self {
             _phantom: PhantomData,
             rf: unsafe {
@@ -35,5 +37,19 @@ impl<'ctx> JsObject<'ctx> {
             _phantom: PhantomData,
             rf,
         }
+    }
+
+    /// Casts to a [`JsValue`], dropping some type information.
+    #[inline]
+    pub fn as_value(&self) -> JsValue<'ctx> {
+        unsafe { mem::transmute::<_, JsValue>(self.rf) }
+    }
+
+    pub fn get_property(&self, ctx: JsContext<'ctx>, name: &JsString) -> JsValue<'ctx> {
+        let mut exception = JsValue::new_null(ctx);
+
+        JsValue::from_rf(unsafe {
+            js_object_get_property(ctx.rf, self.rf, name.as_ptr(), exception.as_mut_ptr())
+        })
     }
 }

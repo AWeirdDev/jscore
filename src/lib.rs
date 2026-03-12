@@ -1,7 +1,6 @@
-pub mod bindings;
-
 mod class;
 mod context;
+mod interfaces;
 mod object;
 mod script;
 mod string;
@@ -17,4 +16,6 @@ pub mod prelude {
     pub use crate::string::*;
     pub use crate::r#type::*;
     pub use crate::value::*;
+
+    pub use crate::interfaces::*;
 }

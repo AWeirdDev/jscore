@@ -1,6 +1,6 @@
 use std::{ffi::CStr, mem::ManuallyDrop};
 
-use crate::bindings::*;
+use jscore_sys::*;
 
 /// Represents a Javascript string.
 #[derive(Debug)]
@@ -134,6 +134,24 @@ impl ToString for JsString {
     fn to_string(&self) -> String {
         self.to_rust_string()
             .expect("failed to convert javascript string to rust string")
+    }
+}
+
+impl From<String> for JsString {
+    fn from(value: String) -> Self {
+        Self::new_from_string(value)
+    }
+}
+
+impl From<char> for JsString {
+    fn from(value: char) -> Self {
+        Self::new_from_char(value)
+    }
+}
+
+impl From<&str> for JsString {
+    fn from(value: &str) -> Self {
+        Self::new_from_str(value)
     }
 }
 

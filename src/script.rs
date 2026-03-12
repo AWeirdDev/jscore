@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, ptr::null_mut};
 
-use crate::{bindings::*, context::JsContext, object::JsObject, string::JsString, value::JsValue};
+use crate::{context::JsContext, object::JsObject, string::JsString, value::JsValue};
+use jscore_sys::*;
 
 /// Represents a script.
 ///
@@ -11,14 +12,12 @@ pub struct Script<'ctx> {
     this: JsObjectRef,
     source: JsStringRef,
     starting_lineno: i32,
-    exception: *mut JsValueRef,
 }
 
 impl<'ctx> Script<'ctx> {
     /// Create a new script.
     #[inline]
     pub fn new(
-        ctx: &'ctx JsContext,
         script: &'ctx JsString,
         this: Option<&'ctx JsObject>,
         source: Option<&'ctx JsString>,
@@ -30,12 +29,13 @@ impl<'ctx> Script<'ctx> {
             this: this.map(|item| item.rf).unwrap_or(null_mut()),
             source: source.map(|item| item.as_ptr()).unwrap_or(null_mut()),
             starting_lineno: starting_lineno.unwrap_or_default(),
-            exception: JsValue::new_null(ctx).as_mut_ptr(),
         }
     }
 
+    /// Instantiate a script builder.
     #[inline]
-    pub fn builder(ctx: &'ctx JsContext) -> ScriptBuilder<'ctx> {
+    #[must_use]
+    pub fn builder() -> ScriptBuilder<'ctx> {
         ScriptBuilder {
             script: Self {
                 _phantom: PhantomData,
@@ -43,14 +43,13 @@ impl<'ctx> Script<'ctx> {
                 this: null_mut(),
                 source: null_mut(),
                 starting_lineno: 0,
-                exception: JsValue::new_null(ctx).as_mut_ptr(),
             },
         }
     }
 
     /// Evaluate the script.
-    #[inline]
-    pub fn evaluate(&self, ctx: &'ctx JsContext) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
+    pub fn evaluate(&self, ctx: JsContext) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
+        let mut exception = JsValue::new_null(ctx);
         let res = unsafe {
             js_evaluate_script(
                 ctx.rf,
@@ -58,12 +57,12 @@ impl<'ctx> Script<'ctx> {
                 self.this,
                 self.source,
                 self.starting_lineno,
-                self.exception,
+                exception.as_mut_ptr(),
             )
         };
 
         if res == null_mut() {
-            Err(JsValue::from_rf(self.exception.cast()))
+            Err(exception)
         } else {
             Ok(JsValue::from_rf(res))
         }
@@ -76,31 +75,38 @@ pub struct ScriptBuilder<'ctx> {
 }
 
 impl<'ctx> ScriptBuilder<'ctx> {
+    /// Sets the script content.
     #[inline]
+    #[must_use]
     pub fn script(mut self, content: &'ctx JsString) -> Self {
         self.script.script = content.as_ptr();
         self
     }
 
+    /// Sets the `this` object.
     #[inline]
+    #[must_use]
     pub fn this(mut self, obj: &'ctx JsObject) -> Self {
         self.script.this = obj.rf;
         self
     }
 
     #[inline]
+    #[must_use]
     pub fn source_url(mut self, source: &'ctx JsString) -> Self {
         self.script.source = source.as_ptr();
         self
     }
 
     #[inline]
+    #[must_use]
     pub fn starting_line_number(mut self, start: i32) -> Self {
         self.script.starting_lineno = start;
         self
     }
 
     #[inline(always)]
+    #[must_use]
     pub fn build(self) -> Script<'ctx> {
         self.script
     }

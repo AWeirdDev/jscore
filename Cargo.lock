@@ -103,6 +103,13 @@ dependencies = [
 name = "jscore"
 version = "0.1.0"
 dependencies = [
+ "jscore-sys",
+]
+
+[[package]]
+name = "jscore-sys"
+version = "0.1.0"
+dependencies = [
  "bindgen",
  "doxygen-bindgen",
  "heck",

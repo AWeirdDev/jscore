@@ -1,5 +1,3 @@
-use crate::bindings;
-
 #[derive(Debug, Clone, Copy)]
 pub enum JsType {
     Undefined,
@@ -13,8 +11,8 @@ pub enum JsType {
 }
 
 impl JsType {
-    pub(crate) const unsafe fn from_ffi(typ: bindings::JsType) -> Self {
-        use bindings::*;
+    pub(crate) const unsafe fn from_ffi(typ: jscore_sys::JsType) -> Self {
+        use jscore_sys::*;
 
         #[allow(nonstandard_style)]
         match typ {

@@ -1,11 +1,13 @@
 use std::{marker::PhantomData, mem, ptr::null_mut};
 
-use crate::bindings::*;
+use jscore_sys::*;
 
 /// A [`ContextGroup`] associates JavaScript contexts with one another.
 /// Contexts in the same group may share and exchange JavaScript objects.
 /// Sharing and exchanging JavaScript objects between contexts in different groups produces
 /// undefined behavior.
+///
+/// Released when dropped.
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ContextGroup {
@@ -45,9 +47,9 @@ impl Drop for ContextGroup {
 
 /// A [`JsGlobalContext`] is a [`JsContext`].
 ///
-/// It represents the global object reference.
+/// It represents the global object. Released when dropped.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct JsGlobalContext<'group> {
     _phantom: PhantomData<&'group ()>,
     pub(crate) rf: JsGlobalContextRef,
@@ -67,6 +69,12 @@ impl<'group> JsGlobalContext<'group> {
     #[inline]
     pub fn retain(&self) {
         unsafe { js_global_context_retain(self.rf) };
+    }
+}
+
+impl Drop for JsGlobalContext<'_> {
+    fn drop(&mut self) {
+        unsafe { js_global_context_release(self.rf) };
     }
 }
 

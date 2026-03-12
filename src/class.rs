@@ -1,4 +1,4 @@
-use crate::bindings::*;
+use jscore_sys::*;
 
 /// A JavaScript class.
 ///
