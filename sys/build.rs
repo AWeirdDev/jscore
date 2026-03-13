@@ -594,7 +594,7 @@ fn generate_bindings(webkit_include_path: &PathBuf) {
                     .allowlist_item("JS.*")
                     .allowlist_type("JS.*")
                     .allowlist_var("kJS.*")
-                    .blocklist_type("PidT")
+                    .blocklist_type("pid_t")
                     .no_copy("OpaqueJS.*")
                     .generate_comments(true)
                     .default_alias_style(bindgen::AliasVariation::TypeAlias)
