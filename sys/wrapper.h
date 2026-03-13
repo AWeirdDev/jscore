@@ -1,10 +1,9 @@
-// generated with artificial intelligence
-// sounds bad. but whatever the fuck
-// so i just add some personal touches in case you hate its format
+// no more ai fuck yeah
 
-#if defined(JSC_INCLUDE_PATH)
+#if defined(JSC_INCLUDE_PATH) && defined(RI_INCLUDE_PATH)
     //  path provided from -DJSC_INCLUDE_PATH="..."
     #include JSC_INCLUDE_PATH
+    #include RI_INCLUDE_PATH
 #else
-    #include "JavaScriptCore/JavaScript.h"
+    #error couldn't find JavaScriptCore.h and JSRemoteInspector.h, see logs
 #endif

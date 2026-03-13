@@ -1,3 +1,5 @@
+//! WebKit JavaScriptCore bindings, using Bun's patched version.
+
 mod class;
 mod context;
 mod interfaces;

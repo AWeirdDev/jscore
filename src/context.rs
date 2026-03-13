@@ -73,6 +73,21 @@ impl<'group> JsGlobalContext<'group> {
         unsafe { js_global_context_retain(self.rf) };
     }
 
+    /// Sets whether the context is inspectable in Web Inspector.
+    /// Default value is `false`.
+    #[inline]
+    pub fn set_inspectable(&self, inspectable: bool) {
+        unsafe {
+            js_global_context_set_inspectable(self.rf, inspectable);
+        }
+    }
+
+    /// Gets whether the context is inspectable in Web Inspector.
+    #[inline]
+    pub fn is_inspectable(&self) -> bool {
+        unsafe { js_global_context_is_inspectable(self.rf) }
+    }
+
     /// Releases a global JavaScript execution context.
     pub fn release(self) {
         unsafe { js_global_context_release(self.rf) };

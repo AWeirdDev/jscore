@@ -520,11 +520,13 @@ fn sdk_flags() -> Vec<String> {
 }
 
 fn jsc_include_flags(webkit_include_path: &PathBuf) -> Vec<String> {
-    let downloaded = webkit_include_path.join("JavaScriptCore/JavaScript.h");
-    if downloaded.exists() {
+    let javascript_h = webkit_include_path.join("JavaScriptCore/JavaScript.h");
+    let ri_h = webkit_include_path.join("JavaScriptCore/JSRemoteInspector.h");
+    if javascript_h.exists() {
         return vec![
             format!("-I{}", webkit_include_path.display()),
-            format!("-DJSC_INCLUDE_PATH=\"{}\"", downloaded.to_string_lossy()),
+            format!("-DJSC_INCLUDE_PATH=\"{}\"", javascript_h.to_string_lossy()),
+            format!("-DRI_INCLUDE_PATH=\"{}\"", ri_h.to_string_lossy()),
         ];
     }
 
