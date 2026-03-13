@@ -594,10 +594,10 @@ fn generate_bindings(webkit_include_path: &PathBuf) {
                     .allowlist_item("JS.*")
                     .allowlist_type("JS.*")
                     .allowlist_var("kJS.*")
+                    .blocklist_type("PidT")
                     .no_copy("OpaqueJS.*")
                     .generate_comments(true)
                     .default_alias_style(bindgen::AliasVariation::TypeAlias)
-                    .blocklist_type("PidT")
                     .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
                     .parse_callbacks(BindgenCallback::new())
                     .clang_arg(format!("-I{}", webkit_include_path.display()));
