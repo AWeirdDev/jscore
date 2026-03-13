@@ -2,8 +2,7 @@
 
 # jscore
 
-`jscore` is a relatively safe bindings to [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) written by Apple.
-
+`jscore` is a relatively safe bindings to [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) originally written by Apple, and patched by the [Bun team](https://github.com/oven-sh).
 
 It is currently **in development** and is not yet meant for production use.
 
@@ -17,15 +16,15 @@ let group = ContextGroup::new();
 
 // Create the global context for JS interactions
 let global = group.create_global_context();
-let ctx = &global.as_context();
+let ctx = global.as_context();
 
 // Create a script
 let content = JsString::new("(() => 'hello from js!')()");
-let script = Script::builder(ctx).script(&content).build();
+let script = Script::builder().script(&content).build();
 
 let result = script.evaluate(ctx).expect("failed to run script");
 let result = result
-    .to_string_copy(ctx)
+    .to_string_copy(ctx) // We need to copy it or it might get garbage collected
     .unwrap()
     .to_rust_string()
     .unwrap();
@@ -40,15 +39,15 @@ While build tests are successful, it might not build on your machine due to the 
 
 **Platform-specific behaviors**:
 
-- **macOS**: It tries to use the macOS Framework. If nothing is found, it downloads WebKit and builds from it.
-- **Linux**: It tries to find existing libraries (`javascriptcoregtk-4.0`, `javascriptcoregtk-4.1`). If nothing is found, it downloads WebKit and builds from it.
-- **Windows**": It downloads WebKit. Since we need ICU on Windows, it builds ICU from source, and then builds.
+- **macOS**: Downloads WebKit and builds from it. Currently, it links `icucore` dynamically and not statically.
+- **Linux**: Downloads WebKit and builds from it.
+- **Windows**: Downloads WebKit, builds ICU from source, then builds from them.
 
 <br />
 
 **Downloading WebKit**:
 
-The script downloads releases from [oven-sh/WebKit] either with `curl` or `python3`, depending on what's available.
+The script downloads releases from [oven-sh/WebKit](https://github.com/oven-sh/WebKit) either with `curl` or `python3`, depending on what's available.
 
 
 ### AI notice
