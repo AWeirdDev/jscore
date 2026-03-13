@@ -2,7 +2,7 @@ use jscore::prelude::*;
 
 #[test]
 fn test_context_group() {
-    let group = ContextGroup::new();
+    let group = JsContextGroup::new();
     let global = group.create_global_context();
     let _context = global.as_context();
 

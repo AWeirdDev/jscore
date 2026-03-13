@@ -2,7 +2,7 @@ use jscore::prelude::*;
 
 #[test]
 fn evaluate_hello() {
-    let group = ContextGroup::new();
+    let group = JsContextGroup::new();
     let global = group.create_global_context();
     let ctx = global.as_context();
 

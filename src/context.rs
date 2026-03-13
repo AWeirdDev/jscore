@@ -10,12 +10,12 @@ use jscore_sys::*;
 /// Released when dropped.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct ContextGroup {
+pub struct JsContextGroup {
     _no_send: PhantomData<*mut ()>,
     pub(crate) rf: JsContextGroupRef,
 }
 
-impl ContextGroup {
+impl JsContextGroup {
     /// Creates a JavaScript context group.
     #[inline]
     pub fn new() -> Self {
@@ -41,7 +41,7 @@ impl ContextGroup {
     }
 }
 
-impl Drop for ContextGroup {
+impl Drop for JsContextGroup {
     fn drop(&mut self) {
         unsafe { js_context_group_release(self.rf) }
     }

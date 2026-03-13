@@ -1,7 +1,7 @@
 use jscore::prelude::*;
 
 fn main() {
-    let group = ContextGroup::new();
+    let group = JsContextGroup::new();
 
     // Create the global context for JS interactions
     let global = group.create_global_context();
