@@ -3,6 +3,11 @@ name = "jscore-sys"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+remote-inspector = [] # enables remote-inspector
+full = ["remote-inspector"]
+
 [dependencies]
 
 [build-dependencies]

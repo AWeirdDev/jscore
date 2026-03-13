@@ -521,13 +521,18 @@ fn sdk_flags() -> Vec<String> {
 
 fn jsc_include_flags(webkit_include_path: &PathBuf) -> Vec<String> {
     let javascript_h = webkit_include_path.join("JavaScriptCore/JavaScript.h");
-    let ri_h = webkit_include_path.join("JavaScriptCore/JSRemoteInspector.h");
+    let mut options = vec![
+        format!("-I{}", webkit_include_path.display()),
+        format!("-DJSC_INCLUDE_PATH=\"{}\"", javascript_h.to_string_lossy()),
+    ];
+
+    if cfg!(feature = "remote-inspector") {
+        let ri_h = webkit_include_path.join("JavaScriptCore/JSRemoteInspector.h");
+        options.push(format!("-DRI_INCLUDE_PATH=\"{}\"", ri_h.to_string_lossy()))
+    }
+
     if javascript_h.exists() {
-        return vec![
-            format!("-I{}", webkit_include_path.display()),
-            format!("-DJSC_INCLUDE_PATH=\"{}\"", javascript_h.to_string_lossy()),
-            format!("-DRI_INCLUDE_PATH=\"{}\"", ri_h.to_string_lossy()),
-        ];
+        return options;
     }
 
     panic!(
