@@ -57,3 +57,5 @@ The script downloads releases from [oven-sh/WebKit] either with `curl` or `pytho
 ### AI notice
 I do have to admit that I co-created the build script with the help of artificial intelligence as I do not have this area of expertise, meaning the code quality may be concerning.
 However, I do want to point out that I don't agree with mass, unprocessed & unaudited AI use, and I did not use AI when creating the Rust bindings; they're hand written.
+
+**Update**: Yeah I dominated the code base. Less AI slop. Yay!
