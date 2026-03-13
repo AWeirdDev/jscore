@@ -10,9 +10,10 @@ pub struct Error<'ctx> {
 macro_rules! property {
     ($name:ident) => {
         #[inline]
-        pub fn $name(&self, ctx: JsContext<'ctx>) -> JsValue<'ctx> {
+        pub fn $name(&self, ctx: JsContext<'ctx>) -> Option<JsValue<'ctx>> {
             self.obj
                 .get_property(ctx, &JsString::new_from_str(stringify!($name)))
+                .ok()
         }
     };
 }

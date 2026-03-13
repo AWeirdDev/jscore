@@ -1,8 +1,9 @@
-use std::{marker::PhantomData, ptr::null_mut};
+use std::{marker::PhantomData, mem, ptr::null_mut, rc::Rc};
 
 use crate::{context::JsContext, object::JsObject, string::JsString};
 use jscore_sys::*;
 
+#[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct JsValue<'ctx> {
     _phantom: PhantomData<&'ctx ()>,
@@ -183,6 +184,22 @@ impl<'ctx> JsValue<'ctx> {
         JsObject::from_rf(value)
     }
 
+    /// Casts to a [`JsObject`].
+    #[inline]
+    pub fn as_object(&self, ctx: JsContext<'_>) -> Option<JsObject<'ctx>> {
+        if self.is_object(ctx) {
+            Some(unsafe { self.as_object_unchecked() })
+        } else {
+            None
+        }
+    }
+
+    /// Casts to a [`JsObject`].
+    #[inline]
+    pub unsafe fn as_object_unchecked(&self) -> JsObject<'ctx> {
+        unsafe { mem::transmute::<_, JsObject>(self.rf) }
+    }
+
     /// Unprotects a JavaScript value from garbage collection.
     ///
     /// You can protect a value multiple times and must unprotect it an
@@ -206,6 +223,18 @@ impl<'ctx> JsValue<'ctx> {
             js_value_protect(ctx.rf, self.rf);
         }
     }
+
+    /// Extends the lifetime of this value without checking.
+    #[inline]
+    pub unsafe fn extend_lifetime_unchecked(&self) -> JsValue<'static> {
+        JsValue::from_rf(self.rf)
+    }
+
+    /// Get a reference-counted handle for this value, protecting it from
+    /// being GC-collected until all usages are dropped.
+    pub fn protected(&self, ctx: JsContext<'ctx>) -> Rc<JsValueHandle> {
+        Rc::new(JsValueHandle::new(ctx, self))
+    }
 }
 
 impl std::fmt::Debug for JsValue<'_> {
@@ -220,22 +249,35 @@ impl<'ctx> From<JsObject<'ctx>> for JsValue<'ctx> {
     }
 }
 
-/// Represents a JavaScript symbol.
-pub struct Symbol;
+#[derive(Clone)]
+pub struct JsValueHandle {
+    ctx: JsContext<'static>,
+    value: JsValue<'static>,
+}
 
-impl Symbol {
-    /// Create a symbol without description.
-    #[inline]
-    pub fn new<'ctx>(ctx: JsContext<'ctx>) -> JsValue<'ctx> {
-        JsValue::new_symbol(ctx, None)
+impl JsValueHandle {
+    #[inline(always)]
+    fn new(ctx: JsContext<'_>, value: &JsValue<'_>) -> Self {
+        value.protect(ctx);
+
+        unsafe {
+            Self {
+                ctx: ctx.extend_lifetime_unchecked(),
+                value: value.extend_lifetime_unchecked(),
+            }
+        }
     }
+}
 
-    /// Create a symbol with description.
-    #[inline]
-    pub fn new_with_description<'ctx>(
-        ctx: JsContext<'ctx>,
-        description: &JsString,
-    ) -> JsValue<'ctx> {
-        JsValue::new_symbol(ctx, Some(description))
+impl JsValueHandle {
+    /// Gets the [`JsValue`] behind the handle.
+    pub fn get<'a>(&'a self) -> &'a JsValue<'a> {
+        &self.value
+    }
+}
+
+impl Drop for JsValueHandle {
+    fn drop(&mut self) {
+        self.value.unprotect(self.ctx);
     }
 }

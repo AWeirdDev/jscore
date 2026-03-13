@@ -103,8 +103,20 @@ pub struct JsContext<'global> {
 }
 
 impl<'global> JsContext<'global> {
+    #[inline(always)]
+    pub(crate) fn from_rf(rf: JsContextRef) -> Self {
+        Self {
+            _phantom: PhantomData,
+            rf,
+        }
+    }
+
     /// Gets the global context of a JavaScript execution context.
     pub fn get_global_context(&self) -> &'global JsGlobalContext<'global> {
         unsafe { &*(js_context_get_global_context(self.rf) as *mut JsGlobalContext) }
+    }
+
+    pub unsafe fn extend_lifetime_unchecked(&self) -> JsContext<'static> {
+        JsContext::from_rf(self.rf)
     }
 }

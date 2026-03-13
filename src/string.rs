@@ -103,7 +103,7 @@ impl JsString {
         unsafe { js_string_get_maximum_utf8c_string_size(self.as_ptr()) }
     }
 
-    /// Converts to Rust String.
+    /// Copies the bytes and converts to Rust String.
     ///
     /// # Returns
     /// `Some(...)` if successful; `None` if failed.
