@@ -11,7 +11,7 @@ pub enum JsType {
 }
 
 impl JsType {
-    pub(crate) const unsafe fn from_ffi(typ: jscore_sys::JsType) -> Self {
+    pub(crate) fn from_ffi(typ: jscore_sys::JsType) -> Self {
         use jscore_sys::*;
 
         #[allow(nonstandard_style)]
@@ -24,7 +24,10 @@ impl JsType {
             JsType_kJSTypeObject => Self::Object,
             JsType_kJSTypeSymbol => Self::Symbol,
             JsType_kJSTypeBigInt => Self::BigInt,
-            _ => unsafe { core::hint::unreachable_unchecked() },
+            _ => panic!(
+                "while getting type, got constant {}, which is not one of the expected values.",
+                typ
+            ),
         }
     }
 }

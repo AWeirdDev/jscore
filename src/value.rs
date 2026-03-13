@@ -1,7 +1,31 @@
-use std::{marker::PhantomData, mem, ptr::null_mut, rc::Rc};
+use std::{cmp, marker::PhantomData, mem, ptr::null_mut, rc::Rc};
 
 use crate::{context::JsContext, object::JsObject, string::JsString};
 use jscore_sys::*;
+
+macro_rules! checker_fn {
+    ($name:ident, $fn:ident) => {
+        #[inline]
+        pub fn $name(&self, ctx: JsContext<'ctx>) -> bool {
+            unsafe { $fn(ctx.rf, self.rf) }
+        }
+    };
+}
+
+macro_rules! to_primitive_fn {
+    ($name:ident, $fn:ident, $to:ty) => {
+        pub fn $name(&self, ctx: JsContext<'ctx>) -> Result<$to, JsValue<'ctx>> {
+            let mut exception = JsValue::new_null(ctx);
+            let res = unsafe { $fn(ctx.rf, self.rf, exception.as_mut_ptr()) };
+
+            if res == 0 && !exception.is_null(ctx) {
+                Err(exception)
+            } else {
+                Ok(res)
+            }
+        }
+    };
+}
 
 #[repr(transparent)]
 #[derive(Clone, Copy)]
@@ -25,45 +49,14 @@ impl<'ctx> JsValue<'ctx> {
         unsafe { crate::r#type::JsType::from_ffi(js_value_get_type(ctx.rf, self.rf)) }
     }
 
-    #[inline]
-    pub fn is_null(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_null(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_boolean(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_boolean(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_number(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_number(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_string(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_string(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_symbol(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_symbol(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_object(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_object(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_array(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_array(ctx.rf, self.rf) }
-    }
-
-    #[inline]
-    pub fn is_date(&self, ctx: JsContext<'ctx>) -> bool {
-        unsafe { js_value_is_date(ctx.rf, self.rf) }
-    }
+    checker_fn!(is_null, js_value_is_null);
+    checker_fn!(is_boolean, js_value_is_boolean);
+    checker_fn!(is_number, js_value_is_number);
+    checker_fn!(is_string, js_value_is_string);
+    checker_fn!(is_symbol, js_value_is_symbol);
+    checker_fn!(is_object, js_value_is_object);
+    checker_fn!(is_array, js_value_is_array);
+    checker_fn!(is_date, js_value_is_date);
 
     /// Casts the reference to a mutable pointer so data
     /// can be written into it.
@@ -200,6 +193,32 @@ impl<'ctx> JsValue<'ctx> {
         unsafe { mem::transmute::<_, JsObject>(self.rf) }
     }
 
+    to_primitive_fn!(to_i32, js_value_to_int32, i32);
+    to_primitive_fn!(to_i64, js_value_to_int64, i64);
+    to_primitive_fn!(to_u32, js_value_to_u_int32, u32);
+    to_primitive_fn!(to_u64, js_value_to_u_int64, u64);
+
+    pub fn compare(
+        &self,
+        ctx: JsContext<'ctx>,
+        right: &JsValue<'ctx>,
+    ) -> Result<cmp::Ordering, JsValue<'ctx>> {
+        let mut exception = JsValue::new_null(ctx);
+        let result = unsafe { js_value_compare(ctx.rf, self.rf, right.rf, exception.as_mut_ptr()) };
+
+        #[allow(nonstandard_style)]
+        match result {
+            JsRelationCondition_kJSRelationConditionUndefined => Err(exception),
+            JsRelationCondition_kJSRelationConditionEqual => Ok(cmp::Ordering::Equal),
+            JsRelationCondition_kJSRelationConditionGreaterThan => Ok(cmp::Ordering::Greater),
+            JsRelationCondition_kJSRelationConditionLessThan => Ok(cmp::Ordering::Less),
+            _ => panic!(
+                "while comparing values, got constant {}, which is not one of Undefined, Equal, GreaterThan, or LessThan",
+                result
+            ),
+        }
+    }
+
     /// Unprotects a JavaScript value from garbage collection.
     ///
     /// You can protect a value multiple times and must unprotect it an
@@ -232,8 +251,9 @@ impl<'ctx> JsValue<'ctx> {
 
     /// Get a reference-counted handle for this value, protecting it from
     /// being GC-collected until all usages are dropped.
-    pub fn protected(&self, ctx: JsContext<'ctx>) -> Rc<JsValueHandle> {
-        Rc::new(JsValueHandle::new(ctx, self))
+    #[inline]
+    pub fn protected(&self, ctx: JsContext<'ctx>) -> Rc<ProtectedJsValue<'ctx>> {
+        Rc::new(ProtectedJsValue::new(ctx, self))
     }
 }
 
@@ -250,14 +270,14 @@ impl<'ctx> From<JsObject<'ctx>> for JsValue<'ctx> {
 }
 
 #[derive(Clone)]
-pub struct JsValueHandle {
-    ctx: JsContext<'static>,
-    value: JsValue<'static>,
+pub struct ProtectedJsValue<'ctx> {
+    ctx: JsContext<'ctx>,
+    value: JsValue<'ctx>,
 }
 
-impl JsValueHandle {
+impl<'ctx> ProtectedJsValue<'ctx> {
     #[inline(always)]
-    fn new(ctx: JsContext<'_>, value: &JsValue<'_>) -> Self {
+    fn new(ctx: JsContext<'ctx>, value: &JsValue<'ctx>) -> Self {
         value.protect(ctx);
 
         unsafe {
@@ -267,16 +287,14 @@ impl JsValueHandle {
             }
         }
     }
-}
 
-impl JsValueHandle {
     /// Gets the [`JsValue`] behind the handle.
-    pub fn get<'a>(&'a self) -> &'a JsValue<'a> {
+    pub fn get(&self) -> &JsValue<'ctx> {
         &self.value
     }
 }
 
-impl Drop for JsValueHandle {
+impl Drop for ProtectedJsValue<'_> {
     fn drop(&mut self) {
         self.value.unprotect(self.ctx);
     }
