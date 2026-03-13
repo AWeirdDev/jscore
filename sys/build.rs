@@ -431,25 +431,58 @@ fn download_prebuilt_webkit(webkit_path: &Path, cache_path: &Path, build_type: &
 
     // extract webkit: either with `tar` or with python
     {
-        let status = Command::new("tar")
-            .args([
-                "-xzf",
-                &archive_path.to_string_lossy(),
-                "-C",
-                &cache_path.to_string_lossy(),
-            ])
-            .status()
-            .expect("couldn't find python");
+        let trials: [Box<dyn FnOnce() -> bool>; 2] = [
+            Box::new({
+                let archive_path = archive_path.clone();
 
-        if !status.success() {
-            panic!("Failed to extract WebKit");
+                move || {
+                    Command::new("tar")
+                        .args([
+                            "-xzf",
+                            &archive_path.to_string_lossy(),
+                            "-C",
+                            &cache_path.to_string_lossy(),
+                        ])
+                        .status()
+                        .ok()
+                        .map(|item| item.success())
+                        .is_some_and(|inner| inner)
+                }
+            }),
+            Box::new({
+                let archive_path = archive_path.clone();
+                move || {
+                    Command::new("python3")
+                        .args([
+                            "scripts/extract.py",
+                            &archive_path.to_string_lossy(),
+                            &cache_path.to_string_lossy(),
+                        ])
+                        .status()
+                        .ok()
+                        .map(|item| item.success()) // Option<bool>
+                        .is_some_and(|inner| inner)
+                }
+            }),
+        ];
+
+        let extracted = 'rt: {
+            for trial in trials.into_iter() {
+                if trial() {
+                    break 'rt true;
+                }
+
+                println!("cargo:warning=failed to download webkit, retrying different method");
+            }
+
+            false
+        };
+        if !extracted {
+            panic!("failed to extract webkit");
         }
     }
 
     fs::remove_file(&archive_path).ok();
-    if webkit_path.exists() {
-        fs::remove_dir_all(webkit_path).unwrap();
-    }
     fs::rename(cache_path.join("bun-webkit"), webkit_path).unwrap();
 
     // Mirrors: if(APPLE) file(REMOVE_RECURSE unicode)
