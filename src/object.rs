@@ -3,6 +3,19 @@ use std::{ffi::c_void, marker::PhantomData, mem, ptr::null_mut};
 
 use crate::{class::JsClass, context::JsContext, string::JsString, value::JsValue};
 
+macro_rules! fallible {
+    ($fn:ident($ctx:expr, $($args:expr,)+) -> $target:ident) => {{
+        let mut exception = JsValue::new_null($ctx);
+        let rf = unsafe { $fn($ctx.rf, $($args,)+ exception.as_mut_ptr()) };
+
+        if rf == null_mut() {
+            Err(exception)
+        } else {
+            Ok($target::from_rf(rf))
+        }
+    }};
+}
+
 #[derive(Clone, Copy)]
 pub struct JsObject<'ctx> {
     _phantom: PhantomData<&'ctx ()>,
@@ -38,17 +51,11 @@ impl<'ctx> JsObject<'ctx> {
         args: impl Iterator<Item = &'ctx JsValue<'ctx>>,
     ) -> Result<Self, JsValue<'ctx>> {
         let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
-
-        let mut exception = JsValue::new_null(ctx);
-        let rf = unsafe {
-            js_object_make_array(ctx.rf, arg_count, args.as_ptr(), exception.as_mut_ptr())
-        };
-
-        if rf == null_mut() {
-            Err(exception)
-        } else {
-            Ok(Self::from_rf(rf))
-        }
+        fallible!(js_object_make_array(
+            ctx,
+            arg_count,
+            args.as_ptr(),
+        ) -> Self)
     }
 
     #[inline(always)]
@@ -85,16 +92,7 @@ impl<'ctx> JsObject<'ctx> {
         ctx: JsContext<'ctx>,
         name: &JsString,
     ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
-        let mut exception = JsValue::new_null(ctx);
-        let res = unsafe {
-            js_object_get_property(ctx.rf, self.rf, name.as_ptr(), exception.as_mut_ptr())
-        };
-
-        if res == null_mut() {
-            Err(exception)
-        } else {
-            Ok(JsValue::from_rf(res))
-        }
+        fallible!(js_object_get_property(ctx, self.rf, name.as_ptr(),) -> JsValue)
     }
 
     pub fn get_property_at_index(
@@ -102,16 +100,7 @@ impl<'ctx> JsObject<'ctx> {
         ctx: JsContext<'ctx>,
         index: u32,
     ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
-        let mut exception = JsValue::new_null(ctx);
-        let res = unsafe {
-            js_object_get_property_at_index(ctx.rf, self.rf, index, exception.as_mut_ptr())
-        };
-
-        if res == null_mut() {
-            Err(exception)
-        } else {
-            Ok(JsValue::from_rf(res))
-        }
+        fallible!(js_object_get_property_at_index(ctx, self.rf, index,) -> JsValue)
     }
 
     /// Deletes a property from the object.
@@ -140,6 +129,25 @@ impl<'ctx> JsObject<'ctx> {
     #[inline]
     pub fn get_private_data(&self) -> *mut c_void {
         unsafe { js_object_get_private(self.rf) }
+    }
+
+    pub fn call_as_function(
+        &self,
+        ctx: JsContext<'ctx>,
+        this: &'ctx JsObject,
+        arg_count: usize,
+        args: impl Iterator<Item = &'ctx JsValue<'ctx>>,
+    ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
+        let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
+        fallible!(
+            js_object_call_as_function(
+                ctx,
+                self.rf,
+                this.rf,
+                arg_count,
+                args.as_ptr(),
+            ) -> JsValue
+        )
     }
 }
 

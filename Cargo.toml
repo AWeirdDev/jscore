@@ -10,8 +10,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["remote-inspector"]
-remote-inspector = ["jscore-sys/remote-inspector"]
+default = []
 
 [dependencies]
 jscore-sys = { path = "./sys" }

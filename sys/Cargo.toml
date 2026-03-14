@@ -5,8 +5,6 @@ edition = "2024"
 
 [features]
 default = []
-remote-inspector = [] # enables remote-inspector
-full = ["remote-inspector"]
 
 [dependencies]
 

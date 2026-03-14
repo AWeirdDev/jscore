@@ -46,6 +46,3 @@ pub mod prelude {
 
     pub use crate::interfaces::*;
 }
-
-#[cfg(feature = "remote-inspector")]
-pub mod remote_inspector {}
