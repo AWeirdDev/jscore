@@ -12,7 +12,7 @@
 //!
 //! // Write a script
 //! let content = JsString::new("'hello from js!'");
-//! let script = Script::builder().script(&content).build();
+//! let script = Script::builder().script(content).build();
 //!
 //! // Evaluate the script
 //! let result = script.evaluate(ctx).expect("failed to run script");
