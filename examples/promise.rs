@@ -10,7 +10,7 @@ fn main() {
 Promise
 "#,
     );
-    let script = Script::builder().script(&content).build();
+    let script = Script::builder().script(content).build();
     let result = script.evaluate(ctx);
     if let Err(e) = &result {
         panic!(

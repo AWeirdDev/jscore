@@ -14,7 +14,7 @@ impl Symbol {
     #[inline]
     pub fn new_with_description<'ctx>(
         ctx: JsContext<'ctx>,
-        description: &JsString,
+        description: JsString,
     ) -> JsValue<'ctx> {
         JsValue::new_symbol(ctx, Some(description))
     }

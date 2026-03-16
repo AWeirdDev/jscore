@@ -103,6 +103,7 @@ dependencies = [
 name = "jscore"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "jscore-sys",
 ]
 

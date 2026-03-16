@@ -8,7 +8,7 @@ fn main() {
     let ctx = global.as_context();
 
     let content = JsString::new("(() => 'hello from js!')()");
-    let script = Script::builder().script(&content).build();
+    let script = Script::builder().script(content).build();
     let result = script.evaluate(ctx).expect("failed to run script");
     let result_str = result
         .to_string_copy(ctx)

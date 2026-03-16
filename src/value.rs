@@ -27,6 +27,7 @@ macro_rules! to_primitive_fn {
     };
 }
 
+/// Represents a JavaScript value reference.
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct JsValue<'ctx> {
@@ -91,16 +92,16 @@ impl<'ctx> JsValue<'ctx> {
 
     // Creates a JavaScript value of the string type.
     #[inline]
-    pub fn new_string(ctx: JsContext<'ctx>, data: &JsString) -> Self {
+    pub fn new_string(ctx: JsContext<'ctx>, data: JsString) -> Self {
         Self::from_rf(unsafe { js_value_make_string(ctx.rf, data.as_ptr()) })
     }
 
     // Creates a JavaScript value of the symbol type.
     #[inline]
-    pub fn new_symbol(ctx: JsContext<'ctx>, description: Option<&JsString>) -> Self {
+    pub fn new_symbol(ctx: JsContext<'ctx>, description: Option<JsString>) -> Self {
         let item = description
-            .map(|k| k.as_ptr())
-            .unwrap_or_else(|| JsString::new_empty().as_ptr());
+            .map(|k| unsafe { k.as_ptr() })
+            .unwrap_or_else(|| unsafe { JsString::new_empty().as_ptr() });
 
         Self::from_rf(unsafe { js_value_make_symbol(ctx.rf, item) })
     }
@@ -109,7 +110,7 @@ impl<'ctx> JsValue<'ctx> {
     ///
     /// # Returns
     /// A [`JsValue`] containing the parsed value, or `None` if the input is invalid.
-    pub fn new_from_json(ctx: JsContext<'ctx>, data: &JsString) -> Option<Self> {
+    pub fn new_from_json(ctx: JsContext<'ctx>, data: JsString) -> Option<Self> {
         let result = unsafe { js_value_make_from_json_string(ctx.rf, data.as_ptr()) };
 
         if result == null_mut() {
@@ -150,14 +151,13 @@ impl<'ctx> JsValue<'ctx> {
         if value == null_mut() {
             Err(exception)
         } else {
-            Ok(JsString { rf: Some(value) })
+            Ok(JsString::from_rf(value))
         }
     }
 
+    #[inline]
     pub fn to_string_copy_lossy(&self, ctx: JsContext<'ctx>) -> JsString {
-        JsString {
-            rf: Some(unsafe { js_value_to_string_copy(ctx.rf, self.rf, null_mut()) }),
-        }
+        JsString::from_rf(unsafe { js_value_to_string_copy(ctx.rf, self.rf, null_mut()) })
     }
 
     pub fn to_object(&self, ctx: JsContext<'ctx>) -> Result<JsObject<'ctx>, JsValue<'ctx>> {
@@ -201,7 +201,7 @@ impl<'ctx> JsValue<'ctx> {
     pub fn compare(
         &self,
         ctx: JsContext<'ctx>,
-        right: &JsValue<'ctx>,
+        right: JsValue<'ctx>,
     ) -> Result<cmp::Ordering, JsValue<'ctx>> {
         let mut exception = JsValue::new_null(ctx);
         let result = unsafe { js_value_compare(ctx.rf, self.rf, right.rf, exception.as_mut_ptr()) };
@@ -253,7 +253,7 @@ impl<'ctx> JsValue<'ctx> {
     /// being GC-collected until all usages are dropped.
     #[inline]
     pub fn protected(&self, ctx: JsContext<'ctx>) -> Rc<ProtectedJsValue<'ctx>> {
-        Rc::new(ProtectedJsValue::new(ctx, self))
+        Rc::new(ProtectedJsValue::new(ctx, *self))
     }
 }
 
@@ -277,7 +277,7 @@ pub struct ProtectedJsValue<'ctx> {
 
 impl<'ctx> ProtectedJsValue<'ctx> {
     #[inline(always)]
-    fn new(ctx: JsContext<'ctx>, value: &JsValue<'ctx>) -> Self {
+    fn new(ctx: JsContext<'ctx>, value: JsValue<'ctx>) -> Self {
         value.protect(ctx);
 
         unsafe {
@@ -289,8 +289,8 @@ impl<'ctx> ProtectedJsValue<'ctx> {
     }
 
     /// Gets the [`JsValue`] behind the handle.
-    pub fn get(&self) -> &JsValue<'ctx> {
-        &self.value
+    pub fn get(&self) -> JsValue<'ctx> {
+        self.value
     }
 }
 

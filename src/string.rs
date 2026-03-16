@@ -2,10 +2,10 @@ use std::{ffi::CStr, mem::ManuallyDrop};
 
 use jscore_sys::*;
 
-/// Represents a Javascript string.
-#[derive(Debug)]
+/// Represents a Javascript string reference.
+#[derive(Debug, Clone, Copy)]
 pub struct JsString {
-    pub(crate) rf: Option<JsStringRef>,
+    pub(crate) rf: JsStringRef,
 }
 
 impl JsString {
@@ -14,10 +14,15 @@ impl JsString {
         Self::new_from_str(data.as_ref())
     }
 
+    #[inline]
+    pub(crate) fn from_rf(rf: JsStringRef) -> Self {
+        Self { rf: rf }
+    }
+
     pub fn new_from_char(data: char) -> Self {
         let chars: JsChars = data.into();
         Self {
-            rf: Some(unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) }),
+            rf: unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) },
         }
     }
 
@@ -25,48 +30,36 @@ impl JsString {
     pub fn new_from_string(data: String) -> Self {
         let chars: JsChars = data.into();
         Self {
-            rf: Some(unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) }),
+            rf: unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) },
         }
     }
 
     pub fn new_from_str(data: &str) -> Self {
         let chars: JsChars = data.into();
         Self {
-            rf: Some(unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) }),
+            rf: unsafe { js_string_create_with_characters(chars.get_ptr(), chars.len()) },
         }
     }
 
     /// Create an empty string.
     pub fn new_empty() -> Self {
         Self {
-            rf: Some(unsafe { js_string_create_with_characters(JsChars::new().get_ptr(), 0) }),
+            rf: unsafe { js_string_create_with_characters(JsChars::new().get_ptr(), 0) },
         }
     }
 
     /// Releases a JavaScript string.
     ///
     /// Requires ownership.
-    pub fn release(mut self) -> bool {
-        if let Some(rf) = self.rf.take() {
-            unsafe {
-                js_string_release(rf);
-            }
-            true
-        } else {
-            false
-        }
+    #[inline]
+    pub unsafe fn release(self) {
+        unsafe { js_string_release(self.rf) };
     }
 
     /// Releases a JavaScript String without ownership checks.
-    pub unsafe fn release_unchecked(&self) -> bool {
-        if let Some(rf) = self.rf {
-            unsafe {
-                js_string_release(rf);
-            }
-            true
-        } else {
-            false
-        }
+    #[inline]
+    pub unsafe fn release_unchecked(&self) {
+        unsafe { js_string_release(self.rf) };
     }
 
     /// Returns the number of Unicode characters in a JavaScript string.
@@ -117,16 +110,9 @@ impl JsString {
     }
 
     /// Converts to a pointer.
-    ///
-    /// # Panics
-    /// Panics when the string has been released.
     #[inline(always)]
-    pub const fn as_ptr(&self) -> JsStringRef {
-        if let Some(ptr) = self.rf {
-            ptr
-        } else {
-            core::panic!("data is released");
-        }
+    pub const unsafe fn as_ptr(&self) -> JsStringRef {
+        self.rf
     }
 }
 

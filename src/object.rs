@@ -16,6 +16,7 @@ macro_rules! fallible {
     }};
 }
 
+/// Represents a JavaScript object reference.
 #[derive(Clone, Copy)]
 pub struct JsObject<'ctx> {
     _phantom: PhantomData<&'ctx ()>,
@@ -36,9 +37,7 @@ impl<'ctx> JsObject<'ctx> {
             rf: unsafe {
                 js_object_make(
                     ctx.rf,
-                    class
-                        .map(|item| item.rf.unwrap_or(null_mut()))
-                        .unwrap_or(null_mut()),
+                    class.map(|item| item.rf).unwrap_or(null_mut()),
                     data.unwrap_or(null_mut()),
                 )
             },
@@ -48,10 +47,49 @@ impl<'ctx> JsObject<'ctx> {
     pub fn new_array(
         ctx: JsContext<'ctx>,
         arg_count: usize,
-        args: impl Iterator<Item = &'ctx JsValue<'ctx>>,
+        args: impl Iterator<Item = JsValue<'ctx>>,
     ) -> Result<Self, JsValue<'ctx>> {
         let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
         fallible!(js_object_make_array(
+            ctx,
+            arg_count,
+            args.as_ptr(),
+        ) -> Self)
+    }
+
+    pub fn new_error(
+        ctx: JsContext<'ctx>,
+        arg_count: usize,
+        args: impl Iterator<Item = JsValue<'ctx>>,
+    ) -> Result<Self, JsValue<'ctx>> {
+        let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
+        fallible!(js_object_make_error(
+            ctx,
+            arg_count,
+            args.as_ptr(),
+        ) -> Self)
+    }
+
+    pub fn new_reg_exp(
+        ctx: JsContext<'ctx>,
+        arg_count: usize,
+        args: impl Iterator<Item = JsValue<'ctx>>,
+    ) -> Result<Self, JsValue<'ctx>> {
+        let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
+        fallible!(js_object_make_reg_exp(
+            ctx,
+            arg_count,
+            args.as_ptr(),
+        ) -> Self)
+    }
+
+    pub fn new_date(
+        ctx: JsContext<'ctx>,
+        arg_count: usize,
+        args: impl Iterator<Item = JsValue<'ctx>>,
+    ) -> Result<Self, JsValue<'ctx>> {
+        let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
+        fallible!(js_object_make_date(
             ctx,
             arg_count,
             args.as_ptr(),
@@ -73,7 +111,7 @@ impl<'ctx> JsObject<'ctx> {
     }
 
     #[inline]
-    pub fn has_property(&self, ctx: JsContext<'ctx>, name: &JsString) -> bool {
+    pub fn has_property(&self, ctx: JsContext<'ctx>, name: JsString) -> bool {
         unsafe { js_object_has_property(ctx.rf, self.rf, name.as_ptr()) }
     }
 
@@ -90,7 +128,7 @@ impl<'ctx> JsObject<'ctx> {
     pub fn get_property(
         &self,
         ctx: JsContext<'ctx>,
-        name: &JsString,
+        name: JsString,
     ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
         fallible!(js_object_get_property(ctx, self.rf, name.as_ptr(),) -> JsValue)
     }
@@ -111,7 +149,7 @@ impl<'ctx> JsObject<'ctx> {
     pub fn delete_property(
         &self,
         ctx: JsContext<'ctx>,
-        name: &JsString,
+        name: JsString,
     ) -> Result<(), JsValue<'ctx>> {
         let mut exception = JsValue::new_null(ctx);
         let success = unsafe {
@@ -131,12 +169,20 @@ impl<'ctx> JsObject<'ctx> {
         unsafe { js_object_get_private(self.rf) }
     }
 
+    /// Sets a pointer to private data on an object.
+    ///
+    /// The default object class doesn’t allocate storage for private data.
+    /// Only objects that have a non-null [`JSClass`] can store private data.
+    pub fn set_private_data(&self, data: *mut c_void) -> bool {
+        unsafe { js_object_set_private(self.rf, data) }
+    }
+
     pub fn call_as_function(
         &self,
         ctx: JsContext<'ctx>,
-        this: &'ctx JsObject,
+        this: JsObject,
         arg_count: usize,
-        args: impl Iterator<Item = &'ctx JsValue<'ctx>>,
+        args: impl Iterator<Item = JsValue<'ctx>>,
     ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
         let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
         fallible!(
@@ -148,6 +194,28 @@ impl<'ctx> JsObject<'ctx> {
                 args.as_ptr(),
             ) -> JsValue
         )
+    }
+
+    pub fn call_as_constructor(
+        &self,
+        ctx: JsContext<'ctx>,
+        arg_count: usize,
+        args: impl Iterator<Item = JsValue<'ctx>>,
+    ) -> Result<JsValue<'ctx>, JsValue<'ctx>> {
+        let args = args.map(|item| item.rf).collect::<Box<[JsValueRef]>>();
+        fallible!(
+            js_object_call_as_constructor(
+                ctx,
+                self.rf,
+                arg_count,
+                args.as_ptr(),
+            ) -> JsValue
+        )
+    }
+
+    #[inline]
+    pub unsafe fn extend_lifetime_unchecked(&self) -> JsObject<'static> {
+        JsObject::from_rf(self.rf)
     }
 }
 

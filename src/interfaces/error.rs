@@ -12,7 +12,7 @@ macro_rules! property {
         #[inline]
         pub fn $name(&self, ctx: JsContext<'ctx>) -> Option<JsValue<'ctx>> {
             self.obj
-                .get_property(ctx, &JsString::new_from_str(stringify!($name)))
+                .get_property(ctx, JsString::new_from_str(stringify!($name)))
                 .ok()
         }
     };

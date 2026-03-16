@@ -18,16 +18,18 @@ impl<'ctx> Script<'ctx> {
     /// Create a new script.
     #[inline]
     pub fn new(
-        script: &'ctx JsString,
-        this: Option<&'ctx JsObject>,
-        source: Option<&'ctx JsString>,
+        script: JsString,
+        this: Option<JsObject>,
+        source: Option<JsString>,
         starting_lineno: Option<i32>,
     ) -> Self {
         Self {
             _phantom: PhantomData,
-            script: script.as_ptr(),
+            script: unsafe { script.as_ptr() },
             this: this.map(|item| item.rf).unwrap_or(null_mut()),
-            source: source.map(|item| item.as_ptr()).unwrap_or(null_mut()),
+            source: source
+                .map(|item| unsafe { item.as_ptr() })
+                .unwrap_or(null_mut()),
             starting_lineno: starting_lineno.unwrap_or_default(),
         }
     }
@@ -39,7 +41,7 @@ impl<'ctx> Script<'ctx> {
         ScriptBuilder {
             script: Self {
                 _phantom: PhantomData,
-                script: JsString::new_empty().as_ptr(),
+                script: unsafe { JsString::new_empty().as_ptr() },
                 this: null_mut(),
                 source: null_mut(),
                 starting_lineno: 0,
@@ -78,23 +80,23 @@ impl<'ctx> ScriptBuilder<'ctx> {
     /// Sets the script content.
     #[inline]
     #[must_use]
-    pub fn script(mut self, content: &'ctx JsString) -> Self {
-        self.script.script = content.as_ptr();
+    pub fn script(mut self, content: JsString) -> Self {
+        self.script.script = unsafe { content.as_ptr() };
         self
     }
 
     /// Sets the `this` object.
     #[inline]
     #[must_use]
-    pub fn this(mut self, obj: &'ctx JsObject) -> Self {
+    pub fn this(mut self, obj: JsObject) -> Self {
         self.script.this = obj.rf;
         self
     }
 
     #[inline]
     #[must_use]
-    pub fn source_url(mut self, source: &'ctx JsString) -> Self {
-        self.script.source = source.as_ptr();
+    pub fn source_url(mut self, source: JsString) -> Self {
+        self.script.source = unsafe { source.as_ptr() };
         self
     }
 

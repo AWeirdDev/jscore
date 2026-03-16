@@ -8,7 +8,7 @@ fn evaluate_hello() {
 
     let script = JsString::new("'hello, world!");
     let err = Script::builder()
-        .script(&script)
+        .script(script)
         .build()
         .evaluate(ctx)
         .err()
@@ -17,7 +17,7 @@ fn evaluate_hello() {
         .unwrap();
 
     assert!(
-        err.get_property(ctx, &"name".into())
+        err.get_property(ctx, "name".into())
             .unwrap()
             .to_string_copy(ctx)
             .unwrap()
